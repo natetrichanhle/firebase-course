@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import { Auth } from './components/auth';
-import { db } from './config/firebase';
+import { auth, db, storage } from './config/firebase';
 import { getDocs, collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes } from 'firebase/storage';
 
 function App() {
   const [movieList, setMovieList] = useState([])
@@ -15,6 +16,9 @@ function App() {
   // Update Title States
   const [updatedTitle, setUpdatedTitle] = useState('')
 
+  // File Upload States
+  const [fileUpload, setFileUpload] = useState(null)
+
   const moviesCollectionRef = collection(db, 'movies')
 
   // CREATE A MOVIE
@@ -23,7 +27,8 @@ function App() {
       await addDoc(moviesCollectionRef, {
         title: newMovieTitle,
         releaseDate: newReleaseDate,
-        receivedAnOscar: isNewMovieOscar
+        receivedAnOscar: isNewMovieOscar,
+        userId: auth?.currentUser?.uid,
       })
     } catch (err) {
       console.error(err)
@@ -56,7 +61,18 @@ function App() {
   // UPDATE A MOVIE
   const updateMovieTitle = async (id) => {
     const movieDoc = doc(db, 'movies', id)
-    await updateDoc(movieDoc, {title: updatedTitle});
+    await updateDoc(movieDoc, { title: updatedTitle });
+  }
+
+  // UPLOAD FILE
+  const uploadFile = async () => {
+    if (!fileUpload) return;
+    const filesFolderRef = ref(storage, `projectFiles/${fileUpload.name}`)
+    try {
+      await uploadBytes(filesFolderRef, fileUpload)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   return (
@@ -79,10 +95,15 @@ function App() {
 
             <button onClick={() => deleteMovie(movie.id)}>Delete Movie</button>
 
-            <input placeholder='New Title...' onChange={e => setUpdatedTitle(e.target.value)}/>
-            <button onClick={() => updateMovieTitle(movie.id)}>Update Title</button> 
+            <input placeholder='New Title...' onChange={e => setUpdatedTitle(e.target.value)} />
+            <button onClick={() => updateMovieTitle(movie.id)}>Update Title</button>
           </div>
         ))}
+      </div>
+
+      <div>
+        <input type='file' onChange={e => setFileUpload(e.target.files[0])} />
+        <button onClick={uploadFile}>Upload File</button>
       </div>
     </div>
   );
