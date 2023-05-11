@@ -3,7 +3,8 @@ import './App.css';
 import { Auth } from './components/auth';
 import { auth, db, storage } from './config/firebase';
 import { getDocs, collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes } from 'firebase/storage';
+import { ref, uploadBytes, listAll, getDownloadURL } from 'firebase/storage';
+import { v4 } from 'uuid'
 
 function App() {
   const [movieList, setMovieList] = useState([])
@@ -18,6 +19,9 @@ function App() {
 
   // File Upload States
   const [fileUpload, setFileUpload] = useState(null)
+  const [imageList, setImageList] = useState([])
+
+  const imageListRef = ref(storage, 'projectFiles/')
 
   const moviesCollectionRef = collection(db, 'movies')
 
@@ -67,13 +71,27 @@ function App() {
   // UPLOAD FILE
   const uploadFile = async () => {
     if (!fileUpload) return;
-    const filesFolderRef = ref(storage, `projectFiles/${fileUpload.name}`)
+    const filesFolderRef = ref(storage, `projectFiles/${fileUpload.name + v4()}`)
     try {
-      await uploadBytes(filesFolderRef, fileUpload)
+      await uploadBytes(filesFolderRef, fileUpload).then((snapshot) => {
+        getDownloadURL(snapshot.ref).then((url) => {
+          setImageList((prev) => [...prev, url])
+        })
+      })
     } catch (err) {
       console.error(err)
     }
   }
+
+  useEffect(() => {
+    listAll(imageListRef).then((response) => {
+      response.items.forEach((item) => {
+        getDownloadURL(item).then((url) => {
+          setImageList((prev) => [...prev, url])
+        })
+      })
+    })
+  }, [])
 
   return (
     <div className="App">
@@ -105,6 +123,10 @@ function App() {
         <input type='file' onChange={e => setFileUpload(e.target.files[0])} />
         <button onClick={uploadFile}>Upload File</button>
       </div>
+
+      {imageList.map((url) => {
+        return <img src={url} />
+      })}
     </div>
   );
 }
